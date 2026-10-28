@@ -3,7 +3,7 @@
   import { Chart, registerables, type ChartType } from 'chart.js';
   import { gsap } from 'gsap';
   import {
-    Activity, ArrowDownToLine, ArrowLeft, ArrowRight, BarChart3, Check, CheckCircle2,
+    Activity, ArrowDownToLine, ArrowLeft, ArrowRight, BarChart3, Check, CheckCircle2, Lightbulb, SlidersHorizontal, Star, ChartNoAxesCombined, CalendarDays, Eye, RotateCcw,
     ChevronDown, CircleHelp, Code2, Database, FileSpreadsheet, FileUp, Filter,
     LayoutDashboard, LoaderCircle, Menu, MoreHorizontal, PieChart, Play, Plus,
     Search, Settings2, ShieldCheck, Sparkles, Table2, Trash2, UploadCloud,
@@ -14,9 +14,10 @@
     asCSV, downloadText, type DatasetInfo, type DataRow, type QueryOutput, type ChartPoint
   } from '$lib/analytics/engine';
 
+  import { insightCatalog, inferRoles, quickInsights, executeInsight, compatible, missingRoles, roleLabels, type Role, type RoleMap, type InsightDefinition, type InsightResult } from '$lib/analytics/insights';
   Chart.register(...registerables);
 
-  type Section = 'overview' | 'explore' | 'sql' | 'visualize' | 'quality';
+  type Section = 'overview' | 'insights' | 'explore' | 'sql' | 'visualize' | 'quality';
   let section: Section = 'overview';
   let dataset: DatasetInfo | null = null;
   let isLoading = false;
@@ -39,9 +40,25 @@
   let chartLoading = false;
   let savedCharts: Array<{ name: string; type: string; x: string; y: string; aggregation: string }> = [];
   let initialized = false;
+  let roles: RoleMap = { date: '', value: '', category: '', revenue: '', cost: '', customer: '' };
+  let quickResults: InsightResult[] = [];
+  let selectedInsight: InsightResult | null = null;
+  let selectedInsightId = '';
+  let insightBusy = false;
+  let insightCategory = 'Semua';
+  let insightSearch = '';
+  let showColumnMapping = false;
+  const insightGroups = ['Semua', 'Ringkasan', 'Peringkat & Segmen', 'Penjualan & Profit', 'Tren Waktu', 'Pelanggan', 'Kualitas Data'];
+  $: visibleInsights = insightCatalog.filter(item =>
+    (insightCategory === 'Semua' || item.group === insightCategory) &&
+    (item.title.toLowerCase().includes(insightSearch.toLowerCase()) ||
+      item.description.toLowerCase().includes(insightSearch.toLowerCase()))
+  );
+  $: insightCount = insightCatalog.filter(item => compatible(item, roles)).length;
 
   const sections: Array<{ key: Section; title: string; detail: string; icon: any }> = [
-    { key: 'overview', title: 'Overview', detail: 'Workspace', icon: LayoutDashboard },
+    { key: 'overview', title: 'Ringkasan', detail: 'Workspace', icon: LayoutDashboard },
+    { key: 'insights', title: 'Insight Studio', detail: '30 analisis siap pakai', icon: Sparkles },
     { key: 'explore', title: 'Data Explorer', detail: 'Browse records', icon: Table2 },
     { key: 'sql', title: 'SQL Playground', detail: 'Run queries', icon: Code2 },
     { key: 'visualize', title: 'Visualizations', detail: 'Build charts', icon: BarChart3 },
@@ -89,8 +106,65 @@
   function savePreferences() {
     if (initialized) localStorage.setItem('dataforge-settings-v1', JSON.stringify({ chartType, savedCharts }));
   }
+  async function refreshQuickInsights(info: DatasetInfo, mapping: RoleMap) {
+    const next = await quickInsights(info, mapping);
+    if (dataset?.name === info.name) quickResults = next;
+  }
+  async function updateRole(role: Role, value: string) {
+    roles = { ...roles, [role]: value };
+    selectedInsight = null;
+    quickResults = [];
+    if (dataset) await refreshQuickInsights(dataset, roles);
+  }
+  async function openInsight(item: InsightDefinition) {
+    section = 'insights';
+    if (!compatible(item, roles)) {
+      showColumnMapping = true;
+      toast('Pilih kolom: ' + missingRoles(item, roles).map(role => roleLabels[role]).join(', '));
+      return;
+    }
+    selectedInsightId = item.id;
+    selectedInsight = null;
+    insightBusy = true;
+    errorMessage = '';
+    try {
+      selectedInsight = await executeInsight(item, roles, dataset!);
+    } catch (error) { showError(error); }
+    finally { insightBusy = false; }
+  }
+  function insightCSV() {
+    if (!selectedInsight) return;
+    downloadText(asCSV(selectedInsight.output.rows, selectedInsight.output.columns), 'kleindata-' + selectedInsight.definition.id + '.csv', 'text/csv');
+    toast('Hasil insight diekspor.');
+  }
+  function insightReport() {
+    if (!selectedInsight || !dataset) return;
+    const content = [
+      '# KleinData · Laporan insight',
+      '',
+      'Dataset: ' + dataset.name,
+      'Analisis: ' + selectedInsight.definition.title,
+      'Dibuat: ' + new Date().toLocaleString('id-ID'),
+      '',
+      '## Temuan',
+      selectedInsight.headline,
+      selectedInsight.detail,
+      '',
+      '## Kueri analisis',
+      '```sql',
+      selectedInsight.sql,
+      '```',
+      '',
+      '> Hasil dihitung dari dataset yang dimuat dan bukan rekomendasi kausal atau prediksi AI.'
+    ].join('\\n');
+    downloadText(content, 'kleindata-insight-report.md', 'text/markdown');
+  }
   function setDefaults(info: DatasetInfo) {
     dataset = info;
+    roles = inferRoles(info);
+    quickResults = [];
+    selectedInsight = null;
+    void refreshQuickInsights(info, roles);
     engineReady = true;
     output = null;
     chartPoints = [];
@@ -108,7 +182,7 @@
     try {
       const result = await loadDemo();
       setDefaults(result);
-      toast('Sample dataset loaded. Ready to explore!');
+      toast('Dataset contoh berhasil dimuat. Insight siap dieksplorasi!');
     } catch (error) { showError(error); }
     finally { isLoading = false; }
   }
@@ -200,7 +274,7 @@
   }
   function exportPreview() {
     if (!dataset) return;
-    downloadText(asCSV(dataset.preview, dataset.columns.map((col) => col.name)), 'dataforge-preview.csv', 'text/csv');
+    downloadText(asCSV(dataset.preview, dataset.columns.map((col) => col.name)), 'kleindata-preview.csv', 'text/csv');
     toast('Preview exported as CSV.');
   }
   async function exportFullDataset() {
@@ -208,7 +282,7 @@
     isLoading = true;
     try {
       const result = await runQuery('SELECT * FROM dataset LIMIT 1000');
-      downloadText(asCSV(result.rows, result.columns), 'dataforge-export-first-1000.csv', 'text/csv');
+      downloadText(asCSV(result.rows, result.columns), 'kleindata-export-first-1000.csv', 'text/csv');
       toast('Exported up to 1,000 rows. Full export can be performed with SQL COPY.');
     } catch (error) { showError(error); }
     finally { isLoading = false; }
@@ -217,7 +291,7 @@
     if (!currentChart) return;
     const anchor = document.createElement('a');
     anchor.href = currentChart.toBase64Image('image/png', 1);
-    anchor.download = 'dataforge-chart.png';
+    anchor.download = 'kleindata-chart.png';
     anchor.click();
   }
   function saveChart() {
@@ -236,10 +310,10 @@
   }
   function exportWorkspace() {
     downloadText(JSON.stringify({
-      app: 'DataForge', version: 1,
+      app: 'KleinData', version: 1,
       dataset: dataset ? { name: dataset.name, rows: dataset.rows, columns: dataset.columns.map((col) => col.name) } : null,
       sql: query, charts: savedCharts
-    }, null, 2), 'dataforge-workspace.json', 'application/json');
+    }, null, 2), 'kleindata-workspace.json', 'application/json');
     toast('Workspace settings exported.');
   }
   function format(value: unknown) {
@@ -250,15 +324,15 @@
 </script>
 
 <svelte:head>
-  <title>DataForge — Analytics Workspace</title>
+  <title>KleinData — Insight & Analytics Studio</title>
   <meta name="description" content="Import, clean, query and visualize datasets in a private, powerful analytics studio." />
 </svelte:head>
 
 <div class="app-shell" data-ready={initialized}>
   <aside class:sidebar-visible={sidebarOpen} class="sidebar">
     <div class="brand-area">
-      <div class="brand-symbol"><Layers size={21} strokeWidth={2.4} /></div>
-      <div class="brand-name">dataforge<span class="brand-dot">.</span><small>ANALYTICS STUDIO</small></div>
+      <div class="brand-symbol"><svg viewBox="0 0 32 32" width="25" height="25" fill="none" aria-hidden="true"><path d="M16 1.5C18.8 11.1 20.9 13.2 30.5 16c-9.6 2.8-11.7 4.9-14.5 14.5C13.2 20.9 11.1 18.8 1.5 16 11.1 13.2 13.2 11.1 16 1.5Z" fill="currentColor"/></svg></div>
+      <div class="brand-name">KleinData<span class="brand-dot">.</span><small>MAKE DATA MAKE SENSE</small></div>
       <button class="icon-btn close-sidebar" aria-label="Close navigation" on:click={() => sidebarOpen = false}><X size={18}/></button>
     </div>
     <div class="nav-scroll">
@@ -281,7 +355,7 @@
     </div>
     <div class="sidebar-foot">
       <div class="privacy-note"><ShieldCheck size={17}/><div><b>Privacy-first analytics</b><span>Your dataset stays in your browser.</span></div></div>
-      <a href="https://github.com/Darren0099/DataForge" target="_blank" rel="noopener noreferrer" class="github-link"><Github size={17}/> View on GitHub <ArrowRight size={15}/></a>
+      <a href="https://github.com/Darren0099/KleinData" target="_blank" rel="noopener noreferrer" class="github-link"><Github size={17}/> View on GitHub <ArrowRight size={15}/></a>
     </div>
   </aside>
 
@@ -291,7 +365,8 @@
     <header class="topbar">
       <div class="top-left">
         <button class="icon-btn mobile-menu" aria-label="Open menu" on:click={() => sidebarOpen = true}><Menu size={22}/></button>
-        <div class="breadcrumb"><span>Workspace</span><span class="breadcrumb-separator">/</span><strong>{sections.find((item) => item.key === section)?.title}</strong></div>
+        <div class="breadcrumb"><span>KleinData</span><span class="breadcrumb-separator">/</span><strong>{sections.find((item) => item.key === section)?.title}</strong></div>
+        <nav class="quick-tabs" aria-label="Navigasi utama"><button class:chosen={section === 'overview'} on:click={() => switchSection('overview')}>Ringkasan</button><button class:chosen={section === 'insights'} on:click={() => switchSection('insights')}>Insight Studio</button><button class:chosen={section === 'visualize'} on:click={() => switchSection('visualize')}>Visualisasi</button></nav>
       </div>
       <div class="top-actions">
         <div class="engine-status"><span class:ready={engineReady} class="status-pip"></span>{engineReady ? 'Engine ready' : 'Browser compute'}</div>
@@ -310,14 +385,14 @@
         <section class="welcome-hero">
           <div class="hero-grid"></div>
           <div class="hero-copy">
-            <span class="eyebrow"><Sparkles size={14}/> THE MODERN DATA WORKSPACE</span>
-            <h1>From raw data to <span>real clarity.</span></h1>
-            <p>Explore datasets, write SQL, build stunning visualizations, and uncover what matters. No setup. No server. Just insights.</p>
+            <span class="eyebrow"><Sparkles size={14}/> KLEINDATA · SMART ANALYTICS WORKSPACE</span>
+            <h1>Make data <span>make sense.</span></h1>
+            <p>Impor datamu, temukan pola, lihat apa yang turun, siapa yang unggul, dan keputusan apa yang layak diuji. Semua dalam satu workspace yang sederhana.</p>
             <div class="hero-actions">
               <button class="button button-primary button-lg" disabled={isLoading} on:click={() => fileInput?.click()}><FileUp size={18}/> Import a dataset <ArrowRight size={17}/></button>
               <button class="button button-outline button-lg" disabled={isLoading || !initialized} on:click={chooseDemo}>{#if isLoading}<LoaderCircle size={17} class="spin"/>{:else}<Play size={17}/>{/if} Explore sample data</button>
             </div>
-            <div class="hero-trust"><ShieldCheck size={16}/> Your files never leave your browser <span>·</span> Free and open source</div>
+            <div class="hero-trust"><ShieldCheck size={16}/> Data diolah lokal di browser <span>·</span> Tanpa biaya langganan</div>
           </div>
           <div class="hero-art" aria-hidden="true">
             <div class="floating-badge floating-badge-top"><span class="purple-spark">✦</span> Smart analytics</div>
@@ -332,7 +407,7 @@
           </div>
         </section>
 
-        <div class="section-heading"><div><span class="label-top">GET STARTED</span><h2>Everything you need to explore</h2><p>One streamlined workspace, zero infrastructure to manage.</p></div></div>
+        <div class="section-heading"><div><span class="label-top">GET STARTED</span><h2>Bawa datamu, biar angkanya bercerita</h2><p>Unggah, pahami, dan ubah angka mentah menjadi insight yang bisa dijelaskan.</p></div></div>
         <div class="feature-grid">
           {#each features as feature,i}
             <button class="feature-card" on:click={() => i === 0 ? fileInput?.click() : chooseDemo()}>
@@ -345,7 +420,7 @@
         </section>
       {:else if section === 'overview'}
         <div class="page-title-row">
-          <div><div class="section-kicker"><span class="live-dot"></span> DATASET ACTIVE</div><h1>Workspace overview <span class="wave">✳</span></h1><p>A clearer picture of your data, all in one place.</p></div>
+          <div><div class="section-kicker"><span class="live-dot"></span> DATASET SIAP DIANALISIS</div><h1>Ringkasan data <span class="wave">✳</span></h1><p>Gambaran besar dari dataset yang baru kamu masukkan.</p></div>
           <button class="button button-outline" on:click={exportFullDataset}><ArrowDownToLine size={16}/> Export sample</button>
         </div>
         <div class="dataset-banner"><div class="banner-file"><FileSpreadsheet size={21}/></div><div><b>{dataset.name}</b><span>Imported dataset · In-memory DuckDB table</span></div><div class="banner-status"><span class="live-dot"></span> Ready to analyze</div></div>
@@ -377,7 +452,7 @@
           <div class="sql-editor-wrap"><div class="line-numbers">1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7<br/>8</div><textarea aria-label="SQL query editor" spellcheck="false" bind:value={query} placeholder="SELECT * FROM dataset LIMIT 100;"></textarea></div>
           <div class="sql-hint"><Sparkles size={15}/> Your table is named <code>dataset</code>. All queries run locally in your browser.</div>
         </div>
-        <div class="panel query-results"><div class="panel-header"><div><h3>Query results</h3><p>{output ? output.rows.length + ' rows returned in ' + output.duration + ' ms' : 'Run a query to see its result set.'}</p></div>{#if output}<button class="text-link" on:click={() => { if(output) downloadText(asCSV(output.rows, output.columns), 'dataforge-query.csv', 'text/csv'); }}><ArrowDownToLine size={16}/> Export CSV</button>{/if}</div>
+        <div class="panel query-results"><div class="panel-header"><div><h3>Query results</h3><p>{output ? output.rows.length + ' rows returned in ' + output.duration + ' ms' : 'Run a query to see its result set.'}</p></div>{#if output}<button class="text-link" on:click={() => { if(output) downloadText(asCSV(output.rows, output.columns), 'kleindata-query.csv', 'text/csv'); }}><ArrowDownToLine size={16}/> Export CSV</button>{/if}</div>
           {#if output}<div class="table-scroll"><table class="data-table"><thead><tr>{#each output.columns as col}<th>{col}</th>{/each}</tr></thead><tbody>{#each output.rows as row}<tr>{#each output.columns as col}<td>{format(row[col])}</td>{/each}</tr>{:else}<tr><td class="empty-cell" colspan={Math.max(1,output.columns.length)}>Query completed. No rows returned.</td></tr>{/each}</tbody></table></div>{:else}<div class="empty-state"><Code2 size={32}/><b>Results will appear here</b><span>Use the sample query or write your own SQL to start.</span></div>{/if}
         </div>
         <div class="sql-examples"><span>TRY A QUERY</span><button on:click={() => query='SELECT * FROM dataset LIMIT 50;'}>Preview 50 rows</button><button on:click={() => query='SELECT COUNT(*) AS total_rows FROM dataset;'}>Count records</button><button on:click={() => query='DESCRIBE dataset;'}>View schema</button></div>
@@ -402,7 +477,7 @@
         <div class="panel"><div class="panel-header"><div><h3>Column profiles</h3><p>Type, missing values, and unique values for every field</p></div></div><div class="table-scroll"><table class="data-table profile-table"><thead><tr><th>Column name</th><th>Data type</th><th>Missing</th><th>Unique</th><th>Completeness</th></tr></thead><tbody>{#each dataset.columns as col}<tr><td><b>{col.name}</b></td><td><span class="type-chip">{col.type}</span></td><td>{col.missing.toLocaleString()}</td><td>{col.unique.toLocaleString()}</td><td><div class="quality-cell"><span><span style:width={(dataset.rows ? (1-col.missing/dataset.rows)*100 : 100)+'%'}></span></span>{(dataset.rows ? (1-col.missing/dataset.rows)*100 : 100).toFixed(0)}%</div></td></tr>{/each}</tbody></table></div></div>
         <div class="panel cleaning-panel"><div class="panel-header"><div><h3>Clean your dataset</h3><p>Changes apply to the in-memory table. Re-import to restore the original.</p></div></div><div class="clean-grid"><div><div class="clean-icon"><Layers size={20}/></div><h4>Remove duplicates</h4><p>Keep one copy of each identical row.</p><button class="button button-outline" disabled={isLoading} on:click={() => applyClean('duplicates')}>Run cleanup <ArrowRight size={15}/></button></div><div><div class="clean-icon orange-bg"><Trash2 size={20}/></div><h4>Remove incomplete rows</h4><p>Remove rows containing empty or missing values.</p><button class="button button-outline" disabled={isLoading} on:click={() => applyClean('nulls')}>Run cleanup <ArrowRight size={15}/></button></div></div></div>
       {/if}
-      <footer class="app-footer"><span>© 2026 DataForge · Built for curious minds</span><span><ShieldCheck size={14}/> Your data stays private and local</span></footer>
+      <footer class="app-footer"><span>© 2026 KleinData · Make data make sense</span><span><ShieldCheck size={14}/> Your data stays private and local</span></footer>
     </div>
   </main>
   {#if isLoading}<div class="loading-overlay"><div><LoaderCircle size={27} class="spin"/><strong>Preparing your workspace</strong><span>Running analysis locally with DuckDB...</span></div></div>{/if}
