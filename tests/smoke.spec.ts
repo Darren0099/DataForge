@@ -47,7 +47,7 @@ test('CSV upload, profiling, and duplicate cleanup', async ({ page }) => {
   await page.locator('input[type="file"]').setInputFiles({
     name: 'sample-sales.csv',
     mimeType: 'text/csv',
-    buffer: Buffer.from('region,revenue\\nNorth,100\\nSouth,200\\nSouth,200\\n')
+    buffer: Buffer.from(['region,revenue', 'North,100', 'South,200', 'South,200', ''].join(String.fromCharCode(10)))
   });
   await expect(page.locator('.dataset-banner')).toContainText('sample-sales.csv', { timeout: 30_000 });
   await expect(page.locator('.stat-card').first()).toContainText('3');
