@@ -51,7 +51,7 @@ test('CSV upload, profiling, and duplicate cleanup', async ({ page }) => {
   });
   await expect(page.locator('.dataset-banner')).toContainText('sample-sales.csv', { timeout: 30_000 });
   await expect(page.locator('.stat-card').first()).toContainText('3');
-  await page.getByRole('button', { name: 'Data Quality' }).click();
+  await page.getByRole('button', { name: 'Data Quality', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Column profiles' })).toBeVisible();
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: /Run cleanup/i }).first().click();
