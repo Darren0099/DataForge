@@ -254,7 +254,7 @@
   <meta name="description" content="Import, clean, query and visualize datasets in a private, powerful analytics studio." />
 </svelte:head>
 
-<div class="app-shell">
+<div class="app-shell" data-ready={initialized}>
   <aside class:sidebar-visible={sidebarOpen} class="sidebar">
     <div class="brand-area">
       <div class="brand-symbol"><Layers size={21} strokeWidth={2.4} /></div>
@@ -315,7 +315,7 @@
             <p>Explore datasets, write SQL, build stunning visualizations, and uncover what matters. No setup. No server. Just insights.</p>
             <div class="hero-actions">
               <button class="button button-primary button-lg" disabled={isLoading} on:click={() => fileInput?.click()}><FileUp size={18}/> Import a dataset <ArrowRight size={17}/></button>
-              <button class="button button-outline button-lg" disabled={isLoading} on:click={chooseDemo}>{#if isLoading}<LoaderCircle size={17} class="spin"/>{:else}<Play size={17}/>{/if} Explore sample data</button>
+              <button class="button button-outline button-lg" disabled={isLoading || !initialized} on:click={chooseDemo}>{#if isLoading}<LoaderCircle size={17} class="spin"/>{:else}<Play size={17}/>{/if} Explore sample data</button>
             </div>
             <div class="hero-trust"><ShieldCheck size={16}/> Your files never leave your browser <span>·</span> Free and open source</div>
           </div>
