@@ -1,0 +1,12 @@
+node_modules
+.svelte-kit
+.vercel
+.wrangler
+dist
+build
+.env
+.env.*
+!.env.example
+playwright-report
+test-results
+.DS_Store
