@@ -15,10 +15,13 @@ test('API health check works', async ({ request }) => {
 
 test('sample dataset can be analyzed with SQL and visualized', async ({ page }) => {
   test.setTimeout(120_000);
-  page.on('console', (msg) => { if (msg.type() === 'error') console.log('BROWSER:', msg.text()); });
+  page.on('console', (msg) => console.log('BROWSER ' + msg.type() + ': ' + msg.text()));
   page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
   await page.goto('/');
   await page.getByRole('button', { name: /Explore sample data/i }).click();
+  await page.waitForTimeout(5000);
+  console.log('DIAGNOSTIC loading=' + await page.locator('.loading-overlay').count());
+  console.log('DIAGNOSTIC body=' + (await page.locator('body').innerText()).slice(0, 1000));
   await Promise.race([
     page.locator('.dataset-banner').waitFor({ timeout: 45_000 }),
     page.locator('.toast-error').waitFor({ timeout: 45_000 })
