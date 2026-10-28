@@ -18,6 +18,7 @@ test('sample dataset can be analyzed with SQL and visualized', async ({ page }) 
   page.on('console', (msg) => console.log('BROWSER ' + msg.type() + ': ' + msg.text()));
   page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
   await page.goto('/');
+  await expect(page.locator('.app-shell')).toHaveAttribute('data-ready', 'true', { timeout: 45_000 });
   await page.getByRole('button', { name: /Explore sample data/i }).click();
   await page.waitForTimeout(5000);
   console.log('DIAGNOSTIC loading=' + await page.locator('.loading-overlay').count());
