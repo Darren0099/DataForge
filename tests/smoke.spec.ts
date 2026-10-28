@@ -51,6 +51,23 @@ test('CSV upload, profiling, and duplicate cleanup', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Column profiles' })).toBeVisible();
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: /Run cleanup/i }).first().click();
-  await page.getByRole('button', { name: 'Ringkasan' }).click();
+  await page.locator('.sidebar .nav-link').filter({ hasText: 'Ringkasan' }).click();
   await expect(page.locator('.stat-card').first()).toContainText('2', { timeout: 30_000 });
+});
+
+test('KleinData v2: 30 adaptive insight options and actual sales decline SQL', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.goto('/');
+  await expect(page.locator('.app-shell')).toHaveAttribute('data-ready', 'true', { timeout: 45_000 });
+  await page.getByRole('button', { name: /Explore sample data/i }).click();
+  await expect(page.locator('.dataset-banner')).toContainText('Retail Performance', { timeout: 60_000 });
+  await page.locator('.sidebar .nav-link').filter({ hasText: 'Insight Studio' }).click();
+  await expect(page.locator('.insight-tile')).toHaveCount(30);
+  await expect(page.locator('.analysis-count')).toContainText('30');
+  await page.getByRole('button', { name: 'Analisis Bulan penurunan penjualan terbesar' }).click();
+  await expect(page.locator('#hasil-insight')).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator('#hasil-insight')).toContainText('Perubahan pada');
+  await expect(page.locator('.query-details pre')).toContainText('LAG(value)');
+  await page.getByRole('button', { name: 'Pemetaan kolom' }).click();
+  await expect(page.getByLabel('Pemetaan Pendapatan')).toHaveValue('revenue');
 });
