@@ -316,16 +316,23 @@
     }, null, 2), 'kleindata-workspace.json', 'application/json');
     toast('Workspace settings exported.');
   }
-  function format(value: unknown) {
+  function format(value: unknown, columnType = '') {
     if (value == null || value === '') return '—';
-    if (typeof value === 'number') return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    if (/DATE|TIMESTAMP/.test(columnType.toUpperCase())) {
+      if (typeof value === 'number' || value instanceof Date) {
+        const date = new Date(value);
+        if (!Number.isNaN(date.getTime())) return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      }
+      if (typeof value === 'string') return value.slice(0, 19);
+    }
+    if (typeof value === 'number') return value.toLocaleString('id-ID', { maximumFractionDigits: 2 });
     return String(value);
   }
 </script>
 
 <svelte:head>
   <title>KleinData — Insight & Analytics Studio</title>
-  <meta name="description" content="Import, clean, query and visualize datasets in a private, powerful analytics studio." />
+  <meta name="description" content="KleinData: 30 pilihan insight adaptif, analisis SQL, visualisasi dan data cleaning. Gratis dan privat di browser." />
 </svelte:head>
 
 <div class="app-shell" data-ready={initialized}>
@@ -443,7 +450,7 @@
         </div>
         <div class="overview-grid">
           <div class="panel"><div class="panel-header"><div><h3>Dataset preview</h3><p>A quick look at the first records</p></div><button class="text-link" on:click={() => switchSection('explore')}>Explore all <ArrowRight size={15}/></button></div>
-            <div class="table-scroll"><table class="data-table"><thead><tr>{#each dataset.columns.slice(0,6) as col}<th>{col.name}</th>{/each}</tr></thead><tbody>{#each dataset.preview.slice(0,5) as row}<tr>{#each dataset.columns.slice(0,6) as col}<td>{format(row[col.name])}</td>{/each}</tr>{/each}</tbody></table></div>
+            <div class="table-scroll"><table class="data-table"><thead><tr>{#each dataset.columns.slice(0,6) as col}<th>{col.name}</th>{/each}</tr></thead><tbody>{#each dataset.preview.slice(0,5) as row}<tr>{#each dataset.columns.slice(0,6) as col}<td>{format(row[col.name], col.type)}</td>{/each}</tr>{/each}</tbody></table></div>
           </div>
           <div class="panel insights-panel"><div class="panel-header"><div><h3>Quick actions</h3><p>Move from data to decisions</p></div><Sparkles size={18} color="#a58cf6"/></div>
             <button class="action-row" on:click={() => switchSection('visualize')}><span class="action-icon purple-bg"><BarChart3 size={19}/></span><span><b>Build a visualization</b><small>Compare trends and distributions</small></span><ArrowRight size={17}/></button>
@@ -515,7 +522,7 @@
       {:else if section === 'explore'}
         <div class="page-title-row"><div><div class="section-kicker">DATA EXPLORER</div><h1>Explore your data</h1><p>Preview the structure and contents of {dataset.name}.</p></div><button class="button button-outline" on:click={exportPreview}><ArrowDownToLine size={17}/> Download preview</button></div>
         <div class="panel"><div class="panel-header"><div><h3>Table preview <span class="subtle-chip">First 10 rows</span></h3><p>{dataset.rows.toLocaleString()} total rows · {dataset.columns.length} columns</p></div><div class="search-box"><Search size={16}/><input aria-label="Search preview" placeholder="Search preview..." bind:value={searchTerm}/></div></div>
-          <div class="table-scroll"><table class="data-table"><thead><tr><th class="row-index">#</th>{#each dataset.columns as col}<th>{col.name}<small>{col.type}</small></th>{/each}</tr></thead><tbody>{#each filteredRows as row,i}<tr><td class="row-index">{i+1}</td>{#each dataset.columns as col}<td>{format(row[col.name])}</td>{/each}</tr>{:else}<tr><td colspan={dataset.columns.length+1} class="empty-cell">No matching rows in the preview.</td></tr>{/each}</tbody></table></div>
+          <div class="table-scroll"><table class="data-table"><thead><tr><th class="row-index">#</th>{#each dataset.columns as col}<th>{col.name}<small>{col.type}</small></th>{/each}</tr></thead><tbody>{#each filteredRows as row,i}<tr><td class="row-index">{i+1}</td>{#each dataset.columns as col}<td>{format(row[col.name], col.type)}</td>{/each}</tr>{:else}<tr><td colspan={dataset.columns.length+1} class="empty-cell">No matching rows in the preview.</td></tr>{/each}</tbody></table></div>
           <div class="table-footer">Showing {filteredRows.length} of the first {dataset.preview.length} rows <span>Use SQL Playground to query the full dataset</span></div>
         </div>
       {:else if section === 'sql'}
