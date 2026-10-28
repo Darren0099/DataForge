@@ -39,3 +39,22 @@ test('sample dataset can be analyzed with SQL and visualized', async ({ page }) 
   await page.getByRole('button', { name: 'Visualizations' }).click();
   await expect(page.locator('canvas')).toBeVisible({ timeout: 30_000 });
 });
+
+test('CSV upload, profiling, and duplicate cleanup', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto('/');
+  await expect(page.locator('.app-shell')).toHaveAttribute('data-ready', 'true', { timeout: 45_000 });
+  await page.locator('input[type="file"]').setInputFiles({
+    name: 'sample-sales.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('region,revenue\\nNorth,100\\nSouth,200\\nSouth,200\\n')
+  });
+  await expect(page.locator('.dataset-banner')).toContainText('sample-sales.csv', { timeout: 30_000 });
+  await expect(page.locator('.stat-card').first()).toContainText('3');
+  await page.getByRole('button', { name: 'Data Quality' }).click();
+  await expect(page.getByRole('heading', { name: 'Column profiles' })).toBeVisible();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: /Run cleanup/i }).first().click();
+  await page.getByRole('button', { name: 'Overview' }).click();
+  await expect(page.locator('.stat-card').first()).toContainText('2', { timeout: 30_000 });
+});
