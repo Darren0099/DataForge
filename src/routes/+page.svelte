@@ -423,7 +423,18 @@
           <div><div class="section-kicker"><span class="live-dot"></span> DATASET SIAP DIANALISIS</div><h1>Ringkasan data <span class="wave">✳</span></h1><p>Gambaran besar dari dataset yang baru kamu masukkan.</p></div>
           <button class="button button-outline" on:click={exportFullDataset}><ArrowDownToLine size={16}/> Export sample</button>
         </div>
-        <div class="dataset-banner"><div class="banner-file"><FileSpreadsheet size={21}/></div><div><b>{dataset.name}</b><span>Imported dataset · In-memory DuckDB table</span></div><div class="banner-status"><span class="live-dot"></span> Ready to analyze</div></div>
+        <div class="dataset-banner"><div class="banner-file"><FileSpreadsheet size={21}/></div><div><b>{dataset.name}</b><span>Imported dataset · In-memory DuckDB table</span></div><div class="banner-status"><span class="live-dot"></span> Siap dianalisis</div></div>
+        
+        <section class="auto-insights">
+          <div class="auto-insights-heading"><div><span class="section-kicker"><Sparkles size={14}/> AUTO INSIGHT</span><h2>Yang perlu kamu ketahui dari data ini</h2><p>Insight awal dihitung otomatis setelah dataset diimpor.</p></div><button class="button button-dark" on:click={() => switchSection('insights')}>Jelajahi 30 analisis <ArrowRight size={17}/></button></div>
+          {#if quickResults.length}
+            <div class="quick-insight-grid">{#each quickResults as result,i}
+              <button class="quick-insight-card" on:click={() => openInsight(result.definition)}><div class="quick-top"><span>{result.definition.group}</span><span class="quick-index">0{i+1}</span></div><h3>{result.definition.title}</h3><strong>{result.headline}</strong><p>{result.detail}</p><span class="quick-link">Lihat analisis <ArrowRight size={14}/></span></button>
+            {/each}</div>
+          {:else}
+            <div class="quick-placeholder"><LoaderCircle size={17} class="spin"/> Mengidentifikasi insight yang sesuai...</div>
+          {/if}
+        </section>
         <div class="kpi-grid">
           <div class="stat-card"><div class="stat-label">Total records <Database size={17}/></div><strong>{dataset.rows.toLocaleString()}</strong><span>Rows imported successfully</span><div class="stat-accent"></div></div>
           <div class="stat-card"><div class="stat-label">Data columns <Layers size={17}/></div><strong>{dataset.columns.length.toLocaleString()}</strong><span>Fields detected automatically</span><div class="stat-accent accent-teal"></div></div>
@@ -440,6 +451,67 @@
             <button class="action-row" on:click={() => switchSection('quality')}><span class="action-icon orange-bg"><WandSparkles size={19}/></span><span><b>Improve data quality</b><small>Profile and clean your records</small></span><ArrowRight size={17}/></button>
           </div>
         </div>
+      
+      {:else if section === 'insights'}
+        <div class="insight-head">
+          <div><div class="section-kicker"><Sparkles size={15}/> INTELLIGENT DATA EXPLORATION</div><h1>Temukan cerita di balik datamu<span class="headline-accent">.</span></h1><p>30 jenis analisis dengan SQL nyata, bukan angka acak atau kesimpulan yang diada-adakan.</p></div>
+          <div class="insight-head-right"><div class="analysis-count"><span>{insightCount}</span><small>dari 30 analisis tersedia</small></div><button class="button button-outline" on:click={() => showColumnMapping = !showColumnMapping}><SlidersHorizontal size={17}/> Pemetaan kolom</button></div>
+        </div>
+
+        <div class="dataset-strip"><span class="strip-icon"><FileSpreadsheet size={19}/></span><div><b>{dataset.name}</b><span>{dataset.rows.toLocaleString('id-ID')} baris · {dataset.columns.length} kolom</span></div><span class="strip-private"><ShieldCheck size={16}/> Data diproses secara lokal</span></div>
+
+        {#if showColumnMapping}
+          <section class="mapping-panel">
+            <div class="panel-header"><div><h3>Sesuaikan kolom dengan arti datamu</h3><p>KleinData menebak kolom otomatis. Koreksi di sini jika nama dataset berbeda.</p></div><button class="icon-btn" title="Tutup pemetaan" on:click={() => showColumnMapping = false}><X size={18}/></button></div>
+            <div class="mapping-grid">
+              {#each Object.keys(roleLabels) as key}
+                <label class="mapping-field"><span>{roleLabels[key as Role]}</span><select aria-label={'Pemetaan ' + roleLabels[key as Role]} value={roles[key as Role]} on:change={(e) => updateRole(key as Role, e.currentTarget.value)}>
+                  <option value="">Tidak dipetakan</option>
+                  {#each dataset.columns.filter(col => key === 'date' || key === 'category' || key === 'customer' || /INT|DOUBLE|FLOAT|DECIMAL|REAL|NUMERIC/.test(col.type)) as col}
+                    <option value={col.name}>{col.name} · {col.type}</option>
+                  {/each}
+                </select></label>
+              {/each}
+            </div>
+            <p class="mapping-foot"><CircleHelp size={15}/> Contoh: untuk mencari penjualan turun, pilih kolom <b>Tanggal</b> dan <b>Pendapatan</b>. Analisis tanpa kolom yang cocok akan ditandai “perlu kolom”.</p>
+          </section>
+        {/if}
+
+        <div class="insight-controls">
+          <div class="insight-filter-scroll">{#each insightGroups as group}<button class:selected={insightCategory === group} on:click={() => insightCategory = group}>{group}</button>{/each}</div>
+          <div class="search-box insight-search"><Search size={17}/><input aria-label="Cari analisis" placeholder="Cari jenis insight..." bind:value={insightSearch}/></div>
+        </div>
+        <div class="insight-catalog">
+          {#each visibleInsights as item,i}
+            <button class:unavailable={!compatible(item,roles)} class:active-insight={selectedInsightId === item.id} class="insight-tile" on:click={() => openInsight(item)} aria-label={'Analisis ' + item.title}>
+              <div class="insight-tile-top"><span class="tile-id">{String(insightCatalog.indexOf(item) + 1).padStart(2,'0')}</span><span class:can-run={compatible(item,roles)} class="tile-state">{compatible(item,roles) ? 'Siap' : 'Perlu kolom'}</span></div>
+              <div class="tile-icon">{#if item.group === 'Tren Waktu'}<ChartNoAxesCombined size={19}/>{:else if item.group === 'Penjualan & Profit'}<TrendingUp size={19}/>{:else if item.group === 'Kualitas Data'}<ShieldCheck size={19}/>{:else if item.group === 'Pelanggan'}<Database size={19}/>{:else if item.group === 'Peringkat & Segmen'}<BarChart3 size={19}/>{:else}<Sparkles size={19}/>{/if}</div>
+              <h3>{item.title}</h3><p>{item.description}</p>
+              <div class="tile-bottom"><span>{item.group}</span><ArrowRight size={16}/></div>
+            </button>
+          {:else}
+            <div class="no-insights"><Search size={28}/><b>Tidak menemukan analisis</b><span>Coba kata kunci atau kategori yang berbeda.</span></div>
+          {/each}
+        </div>
+
+        {#if insightBusy}
+          <section class="insight-output loading-insight"><LoaderCircle size={23} class="spin"/><b>Menghitung insight dengan DuckDB...</b><p>Menjalankan analisis dari dataset asli.</p></section>
+        {:else if selectedInsight}
+          <section class="insight-output" id="hasil-insight">
+            <div class="result-topline"><div><span class="label-top">HASIL ANALISIS · {selectedInsight.definition.group.toUpperCase()}</span><h2>{selectedInsight.definition.title}</h2></div><div class="result-actions"><button class="button button-outline button-sm" on:click={insightCSV}><ArrowDownToLine size={15}/> CSV</button><button class="button button-dark button-sm" on:click={insightReport}><ArrowDownToLine size={15}/> Laporan</button></div></div>
+            <div class="result-highlight"><span>HASIL UTAMA</span><strong>{selectedInsight.headline}</strong><p>{selectedInsight.detail}</p></div>
+            {#if selectedInsight.chart.length > 0}
+              <div class="result-bars">{#each selectedInsight.chart as point,i}
+                <div class="result-bar-row"><span title={point.label}>{point.label}</span><div class="bar-track"><div class="bar-fill" style:width={Math.max(4, Math.abs(point.value)/(Math.max(...selectedInsight.chart.map(p => Math.abs(p.value)), 1))*100)+'%'}></div></div><b>{point.value.toLocaleString('id-ID',{maximumFractionDigits:2})}</b></div>
+              {/each}</div>
+            {/if}
+            <div class="result-table-wrap"><div class="result-table-title"><b>Data pendukung</b><span>{selectedInsight.output.rows.length} baris · {selectedInsight.output.duration} ms</span></div>
+              <div class="table-scroll"><table class="data-table"><thead><tr>{#each selectedInsight.output.columns as col}<th>{col}</th>{/each}</tr></thead><tbody>{#each selectedInsight.output.rows.slice(0,30) as row}<tr>{#each selectedInsight.output.columns as col}<td>{format(row[col])}</td>{/each}</tr>{/each}</tbody></table></div>
+            </div>
+            <details class="query-details"><summary><Code2 size={16}/> Lihat SQL yang dijalankan <ChevronDown size={16}/></summary><pre>{selectedInsight.sql}</pre></details>
+            <div class="result-disclaimer"><ShieldCheck size={16}/> Analisis deskriptif berdasarkan kolom yang dipetakan. Penurunan, korelasi, dan selisih tidak dengan sendirinya membuktikan penyebab.</div>
+          </section>
+        {/if}
       {:else if section === 'explore'}
         <div class="page-title-row"><div><div class="section-kicker">DATA EXPLORER</div><h1>Explore your data</h1><p>Preview the structure and contents of {dataset.name}.</p></div><button class="button button-outline" on:click={exportPreview}><ArrowDownToLine size={17}/> Download preview</button></div>
         <div class="panel"><div class="panel-header"><div><h3>Table preview <span class="subtle-chip">First 10 rows</span></h3><p>{dataset.rows.toLocaleString()} total rows · {dataset.columns.length} columns</p></div><div class="search-box"><Search size={16}/><input aria-label="Search preview" placeholder="Search preview..." bind:value={searchTerm}/></div></div>
