@@ -1,45 +1,64 @@
-# DataForge · Analytics Studio
+# KleinData v2 · Smart Insight Studio
 
-> **From raw data to real clarity.** A free, browser-first data analytics workspace powered by SvelteKit + DuckDB-Wasm.
+**Make data make sense.** KleinData adalah workspace analytics ringan yang mengubah data mentah menjadi ringkasan, SQL, grafik, dan pilihan insight yang dapat dijelaskan.
 
-![License: MIT](https://img.shields.io/badge/license-MIT-9b87fc) ![SvelteKit](https://img.shields.io/badge/SvelteKit-5-ff3e00) ![DuckDB](https://img.shields.io/badge/Analytics-DuckDB--Wasm-f4db40)
+[![SvelteKit](https://img.shields.io/badge/SvelteKit-5-ff3e00)](https://svelte.dev) [![DuckDB](https://img.shields.io/badge/Engine-DuckDB--Wasm-ffc13d)](https://duckdb.org/docs/stable/clients/wasm/overview.html) [![License](https://img.shields.io/badge/License-MIT-191919)](LICENSE)
 
-## Overview
+> Aplikasi sudah berganti nama dari **DataForge v1** menjadi **KleinData v2**. GitHub repository masih menggunakan URL DataForge demi menjaga kompatibilitas tautan serta integrasi deploy yang sudah ada.
 
-DataForge helps analysts inspect a dataset, discover quality issues, write SQL and produce interactive charts without configuring a data warehouse or uploading data to a server. The full dataset is processed **in your browser**, and is removed when the page is reloaded.
+## Apa yang berubah di v2?
 
-### Features implemented
+- Desain ulang menjadi **white + black + orange** dengan aksen ungu, navigasi pill, bento cards, dan ikon bintang empat sudut.
+- **Insight Studio**: 30 resep SQL analitik yang benar-benar dieksekusi terhadap dataset yang diimpor, bukan laporan hasil teks statis.
+- **Rekomendasi otomatis** sesaat setelah dataset diimpor, jika skema kolom memungkinkan.
+- **Deteksi dan pemetaan kolom**: tanggal, nilai utama, kategori, pendapatan, biaya, dan ID pelanggan. Pengguna dapat mengoreksinya.
+- Analisis tanpa prasyarat kolom ditandai siap; yang membutuhkan kolom lain ditandai `Perlu kolom`, bukan membuat hasil buatan.
+- Hasil analisis dilengkapi ringkasan angka, keterangan, peringkat/bar chart, tabel, SQL, ekspor CSV, dan laporan Markdown.
+- Fitur sebelumnya tetap tersedia: Data Explorer, SQL Playground, Visualizations (bar, line, donut), Data Quality, ekspor, dan demo.
 
-- Upload **CSV, TSV, JSON, Parquet or Excel (.xlsx)** files, up to 60 MB.
-- Explore a built-in **240-row retail dataset** without uploading a file.
-- View total rows, column schema, data completeness, missing and unique-value counts.
-- Search a 10-row preview; use SQL for querying the full dataset.
-- Execute DuckDB SQL with a syntax-editable query editor and inspect results.
-- Create bar, line and doughnut charts using SUM, AVG or COUNT aggregations.
-- Export charts as PNG, query results as CSV, and workspace configuration as JSON.
-- Remove duplicate rows or rows with missing values (in-memory only).
-- Persist saved **chart configurations** in browser localStorage (not raw data).
-- Responsive dark interface animated with GSAP (reduced-motion support).
-- Hono API health endpoint at `/api/health`.
-- Drizzle ORM schema scaffold for **future authenticated Cloudflare D1 storage**, intentionally not exposed as a public writable endpoint.
+### 30 jenis insight yang tersedia
 
-## Tech stack
-
-| Layer | Technology |
+| Kategori | Pilihan |
 |---|---|
-| App | SvelteKit 2, Svelte 5, TypeScript, Vite |
-| Analytics | DuckDB-Wasm (client-side WebAssembly) |
-| File import | read-excel-file (.xlsx), DuckDB CSV/TSV/JSON/Parquet |
-| Visualization | Chart.js |
-| Motion & UI | GSAP, Lucide Svelte, custom CSS |
-| API | Hono + SvelteKit RequestHandler |
-| Future database integration | Drizzle ORM + Cloudflare D1 |
-| Hosting | Vercel Hobby, or Cloudflare Workers Free |
-| Tests | Playwright + svelte-check |
+| Ringkasan (8) | Total baris, total nilai, rata-rata, median, maksimum, minimum, persentil 90, nilai nonpositif |
+| Peringkat & Segmen (7) | Kategori tertinggi, kategori terendah, paling sering muncul, rata-rata kategori, kontribusi kategori (%), 10 record terbesar, 10 record terkecil |
+| Penjualan & Profit (5) | Total pendapatan, estimasi profit, margin estimasi, kategori paling menguntungkan, kategori dengan selisih negatif |
+| Tren Waktu (5) | Tren pendapatan per bulan, bulan penurunan terbesar, bulan kenaikan terbesar, volume bulanan, rata-rata nilai bulanan |
+| Pelanggan (3) | Pelanggan unik, pelanggan berulang menurut record, pelanggan nilai terbesar |
+| Kualitas Data (2) | Data kosong per kolom, baris identik/duplikat |
+
+**Catatan metodologi:** Profit yang ditampilkan adalah *pendapatan dikurangi kolom biaya*. Ini bukan laba bersih jika biaya operasional, pajak, dan retur belum masuk. Penurunan terhadap bulan sebelumnya tidak membuktikan penyebab penurunan; insight hanya bersifat deskriptif. `Pelanggan berulang` berarti ID muncul di lebih dari satu record—bila satu pesanan terdiri dari beberapa baris, itu belum tentu pembelian berulang.
+
+Semua analisis bekerja berdasarkan nama dan tipe kolom dataset. Insight tanggal, revenue, cost, category, dan customer hanya aktif jika datanya ada/dipetakan. Hasil berasal dari query DuckDB. **Tidak menggunakan AI API** dan tidak mengirim data pengguna ke LLM eksternal.
+
+## Cara memakai
+
+1. Buka aplikasi dan klik **Explore sample data**, atau impor CSV, TSV, JSON, XLSX, atau Parquet (maksimum 60 MB).
+2. Lihat hasil otomatis di kartu **Yang perlu kamu ketahui dari data ini**.
+3. Pilih **Insight Studio** untuk mengakses 30 pilihan. Kartu berstatus *Siap* bisa langsung dieksekusi.
+4. Jika hasil tidak sesuai atau analisis berstatus *Perlu kolom*, buka **Pemetaan kolom** dan pilih kolom yang tepat.
+5. Klik analisis, baca *Hasil utama*, diagram, tabel bukti dan SQL. Ekspor hasil ke CSV atau laporan Markdown.
+6. Gunakan SQL Playground untuk pertanyaan bebas terhadap tabel `dataset`; gunakan Visualizations untuk grafik manual.
+
+Contoh pertanyaan: *Kapan pendapatan mengalami penurunan terbesar?* membutuhkan `Tanggal` dan `Pendapatan`. KleinData mengelompokkan omzet per bulan, membandingkan setiap bulan terhadap sebelumnya, dan memberi periode beserta besarnya perubahan. Dataset harus memiliki setidaknya dua bulan dengan tanggal valid.
+
+## Teknologi
+
+| Layer | Pilihan |
+|---|---|
+| Web | SvelteKit 2, Svelte 5, TypeScript |
+| SQL Analytics | DuckDB-Wasm (browser runtime yang di-host sendiri) |
+| Data visualisasi | Chart.js |
+| Animation | GSAP, dengan dukungan `prefers-reduced-motion` |
+| UI | CSS responsif, Lucide Svelte |
+| API | Hono melalui SvelteKit endpoint `/api/health` |
+| Future schema | Drizzle ORM untuk Cloudflare D1 (belum diaktifkan) |
+| Hosting | Vercel Hobby; adapter alternatif Cloudflare Workers |
+| CI | GitHub Actions: type check, build, Playwright |
 
 ## Local development
 
-Requires Node.js 22+.
+Node.js 22+ direkomendasikan.
 
 ```bash
 git clone https://github.com/Darren0099/DataForge.git
@@ -48,9 +67,7 @@ npm install
 npm run dev
 ```
 
-Visit the address printed by Vite (typically http://localhost:5173).
-
-Run validation:
+Test:
 
 ```bash
 npm run check
@@ -59,53 +76,17 @@ npx playwright install chromium
 npm test
 ```
 
-## How to use
+Deployment menggunakan adapter Vercel secara default. Cloudflare dapat dibuild dengan `DEPLOY_TARGET=cloudflare npm run build`, lalu `npx wrangler deploy`, setelah konfigurasi akun valid.
 
-1. Select **Explore sample data** or **Import a dataset**.
-2. Open **Overview** to inspect row counts and missing values.
-3. Open **SQL Playground** and query the in-memory table named `dataset`. Example:
+## Privasi dan keterbatasan
 
-```sql
-SELECT region, SUM(revenue) AS total_revenue, COUNT(*) AS orders
-FROM dataset
-GROUP BY region
-ORDER BY total_revenue DESC;
-```
+- Dataset tetap diproses dalam mesin DuckDB yang berjalan di browser.
+- Tidak ada API upload dataset. Data di memori akan hilang ketika halaman di-refresh.
+- Runtime WASM/Worker dibundel dan disajikan dari server aplikasi.
+- Data visualisasi yang disimpan di browser hanyalah **konfigurasi grafik**, bukan seluruh dataset.
+- Penjelajahan tabel dibatasi 10 baris preview; hasil SQL membatasi hasil tampil maksimal 1.000 baris.
+- Ekspor dari overview mengambil hingga 1.000 record; untuk dataset besar gunakan SQL atau file asal.
+- Deteksi kolom adalah heuristik nama dan tipe, tidak selalu benar. Sebelum menarik kesimpulan, periksa pemetaan kolom, satuan, periode, biaya, dan kualitas tanggal.
+- Belum ada akun, sinkronisasi cloud, project bersama, atau penjadwalan laporan.
 
-4. In **Visualizations**, choose grouping, aggregation and chart type. Save settings or export PNG.
-5. Use **Data Quality** to inspect fields and optionally clean duplicate/incomplete rows.
-
-**Note on exports:** The dataset export action is capped at the first 1,000 records, and the initial table preview displays 10 records. SQL results also display a maximum of 1,000 rows to avoid freezing the interface. Re-import the original file to undo in-memory cleanups.
-
-## Deployment
-
-### Vercel
-
-Connect this GitHub repository in Vercel as a **SvelteKit** project. Build command: `npm run build`. The default SvelteKit adapter is `@sveltejs/adapter-vercel`. No environment variables are required.
-
-### Cloudflare Workers
-
-The repository includes `wrangler.jsonc` and `@sveltejs/adapter-cloudflare`. Use Node.js 22+ and a connected Workers Builds Git repository:
-
-- Build command: `DEPLOY_TARGET=cloudflare npm run build`
-- Deploy command: `npx wrangler deploy`
-- Worker name: `dataforge-analytics`
-
-Cloudflare Workers Free resource limits apply. No D1 database is required for this release because the application runs analytics entirely in the browser. The Drizzle schema is **not** a provisioned database or live user-account feature.
-
-## Security & privacy
-
-- File bytes and SQL calculations remain in the browser's DuckDB-Wasm engine.
-- No file upload API is exposed. Runtime WebAssembly assets are served from the app origin.
-- DuckDB-Wasm runtime files are bundled and served from the same site. The dataset never leaves the browser.
-- The workspace JSON contains configuration, dataset name, column names, and SQL text, **not** the raw dataset.
-- Browser localStorage stores chart preferences only. Avoid putting sensitive data into chart names or SQL exports.
-- Local SQL queries execute against the user's temporary in-browser DuckDB database, not a remote production database.
-
-## Roadmap
-
-Future (not part of the current MVP): authentication, encrypted cloud workspaces, D1/R2 integrations, large-data streaming, scheduled reports, cross-project dashboards and collaborative sharing.
-
-## License
-
-MIT · Built by [Darren0099](https://github.com/Darren0099).
+**Lisensi:** MIT · [Darren0099](https://github.com/Darren0099).
