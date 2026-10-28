@@ -8,14 +8,19 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install
+      - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Type-check
+      - name: Svelte type check
         run: npm run check
-      - name: Build
+      - name: Production build
         run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke tests
+        run: npm test
