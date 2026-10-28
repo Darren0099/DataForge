@@ -15,9 +15,18 @@ test('API health check works', async ({ request }) => {
 
 test('sample dataset can be analyzed with SQL and visualized', async ({ page }) => {
   test.setTimeout(120_000);
+  page.on('console', (msg) => { if (msg.type() === 'error') console.log('BROWSER:', msg.text()); });
+  page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
   await page.goto('/');
   await page.getByRole('button', { name: /Explore sample data/i }).click();
-  await expect(page.getByText('Retail Performance 2026.csv').first()).toBeVisible({ timeout: 90_000 });
+  await Promise.race([
+    page.locator('.dataset-banner').waitFor({ timeout: 45_000 }),
+    page.locator('.toast-error').waitFor({ timeout: 45_000 })
+  ]);
+  if (await page.locator('.toast-error').count()) {
+    throw new Error('DuckDB user-facing error: ' + (await page.locator('.toast-error').textContent()));
+  }
+  await expect(page.getByText('Retail Performance 2026.csv').first()).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.stat-card').first()).toContainText('240');
 
   await page.getByRole('button', { name: 'SQL Playground' }).click();
