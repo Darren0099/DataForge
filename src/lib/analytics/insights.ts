@@ -30,7 +30,7 @@ const months = (r: RoleMap, mode: 'revenue' | 'value' | 'count' = 'revenue') =>
   ' AS value FROM dataset WHERE ' + d(r) + ' IS NOT NULL GROUP BY 1 ORDER BY 1 ASC';
 const deltas = (r: RoleMap, order: 'ASC' | 'DESC') =>
   'WITH monthly AS (' + months(r) + '), diffs AS (SELECT label, value, LAG(value) OVER (ORDER BY label) AS previous FROM monthly) ' +
-  'SELECT label, value, previous, value - previous AS change, CASE WHEN previous <> 0 THEN ROUND((value - previous) * 100.0 / ABS(previous), 2) END AS pct FROM diffs WHERE previous IS NOT NULL ORDER BY change ' + order + ' LIMIT 12';
+  'SELECT label, value, previous, value - previous AS change, CASE WHEN previous <> 0 THEN ROUND((value - previous) * 100.0 / ABS(previous), 2) END AS pct FROM diffs WHERE previous IS NOT NULL AND ' + (order === 'ASC' ? 'value < previous' : 'value > previous') + ' ORDER BY change ' + order + ' LIMIT 12';
 
 const make = (id: string, title: string, group: InsightGroup, description: string, needs: Role[], kind: InsightKind, query: InsightDefinition['query']): InsightDefinition => ({
   id, title, group, description, needs, kind, query
@@ -114,7 +114,7 @@ export async function executeInsight(def: InsightDefinition, roles: RoleMap, inf
   const first = rows[0];
   const chart = def.kind === 'number' || def.kind === 'rows' ? [] :
     rows.slice(0, 12).filter(row => Number.isFinite(Number(row.value))).map(row => ({ label: String(row.label ?? 'Tidak diketahui').slice(0, 36), value: Number(row.value) }));
-  if (!rows.length) return { definition: def, sql, output, chart: [], headline: 'Tidak ditemukan hasil', detail: 'Tidak ada baris yang cocok dengan kondisi analisis ini.' };
+  if (!rows.length) return { definition: def, sql, output, chart: [], headline: 'Tidak ada pola yang cocok', detail: def.kind === 'change' ? 'Tidak ditemukan perubahan dengan arah tersebut, atau data belum mencakup dua periode tanggal valid.' : 'Tidak ada baris yang cocok dengan kondisi analisis ini.' };
   if (def.kind === 'number') {
     const amount = first?.value;
     return { definition: def, sql, output, chart, headline: amount == null ? 'Tidak tersedia' : fmt(amount), detail: amount == null ? 'Data tidak cukup untuk menghitung hasil.' : 'Hasil dihitung langsung dari tabel dataset dengan DuckDB. Periksa satuan kolom sebelum menafsirkan angka.' };
