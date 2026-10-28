@@ -1,4 +1,8 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
+import mvpWasm from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
+import mvpWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
+import ehWasm from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
+import ehWorker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import readXlsxFile from 'read-excel-file';
 
 export type DataRow = Record<string, unknown>;
@@ -32,11 +36,14 @@ const quoteLiteral = (str: string): string => "'" + str.replaceAll("'", "''") + 
 
 export async function getConnection() {
   if (connection) return connection;
-  const bundles = duckdb.getJsDelivrBundles();
+  // Host the WebAssembly and Worker assets with our own application. No runtime CDN dependency.
+  const bundles: duckdb.DuckDBBundles = {
+    mvp: { mainModule: mvpWasm, mainWorker: mvpWorker },
+    eh: { mainModule: ehWasm, mainWorker: ehWorker }
+  };
   const bundle = await duckdb.selectBundle(bundles);
   if (!bundle.mainWorker) throw new Error('Unable to load DuckDB analytics worker.');
-  const url = URL.createObjectURL(new Blob(['importScripts(' + JSON.stringify(bundle.mainWorker) + ');'], { type: 'text/javascript' }));
-  const worker = new Worker(url);
+  const worker = new Worker(bundle.mainWorker);
   try {
     const instance = new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(), worker);
     await instance.instantiate(bundle.mainModule, bundle.pthreadWorker);
@@ -46,8 +53,6 @@ export async function getConnection() {
   } catch (error) {
     worker.terminate();
     throw error;
-  } finally {
-    URL.revokeObjectURL(url);
   }
 }
 
