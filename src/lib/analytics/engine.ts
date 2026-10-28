@@ -1,5 +1,5 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
-import readXlsxFile from 'read-excel-file/browser';
+import readXlsxFile from 'read-excel-file';
 
 export type DataRow = Record<string, unknown>;
 export type ColumnInfo = { name: string; type: string; missing: number; unique: number };
