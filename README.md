@@ -96,8 +96,8 @@ Cloudflare Workers Free resource limits apply. No D1 database is required for th
 ## Security & privacy
 
 - File bytes and SQL calculations remain in the browser's DuckDB-Wasm engine.
-- No file upload API is exposed.
-- The app requests DuckDB-Wasm runtime assets from the public jsDelivr CDN; downloading a runtime is **not** the same as uploading a dataset.
+- No file upload API is exposed. Runtime WebAssembly assets are served from the app origin.
+- DuckDB-Wasm runtime files are bundled and served from the same site. The dataset never leaves the browser.
 - The workspace JSON contains configuration, dataset name, column names, and SQL text, **not** the raw dataset.
 - Browser localStorage stores chart preferences only. Avoid putting sensitive data into chart names or SQL exports.
 - Local SQL queries execute against the user's temporary in-browser DuckDB database, not a remote production database.
